@@ -21,7 +21,7 @@ main =
         { init = init
         , view = \model -> { title = "Talk with Azar Darr!", body = [ model |> view |> toUnstyled ] }
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = \_ -> Time.every (5*1000) (\_ -> Refresh)
         }
 
 
@@ -71,7 +71,8 @@ type Msg
     | UpdateMessage String
     | UpdateUsername String
     | SendMessage
-    | BodyResponse (Result Http.Error String)
+    | MessageSent (Result Http.Error String)
+    | Refresh
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -86,11 +87,14 @@ update msg model =
         UpdateUsername username ->
             ( { model | currentUsername = username }, Cmd.none )
 
-        BodyResponse _ ->
-            ( model, Cmd.none )
+        MessageSent _ ->
+            ( model, getChannel "general" )
 
         SendMessage ->
             ( { model | currentMessage = "" }, sendMessage "general" model.currentUsername model.currentMessage )
+
+        Refresh ->
+            ( model, getChannel "general" )
 
 
 sendMessage : String -> String -> String -> Cmd Msg
@@ -98,7 +102,7 @@ sendMessage channel username message =
     Http.post
         { url = "https://replyr.herokuapp.com/chat/channel/" ++ channel ++ "/message"
         , body = Http.jsonBody (Encode.object [ ( "username", Encode.string username ), ( "text", Encode.string message ) ])
-        , expect = Http.expectString BodyResponse
+        , expect = Http.expectString MessageSent
         }
 
 
